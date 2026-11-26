@@ -17,7 +17,6 @@ namespace DrivingSchool.Repositories.Implementations
 
         public void DeleteExamResult(int id)
         {
-            // Убедитесь, что у сущности ExamResult есть свойство ExamResultId
             var item = _examResults.FirstOrDefault(e => e.ResultId == id);
             if (item != null)
             {

@@ -17,7 +17,6 @@ namespace DrivingSchool.Repositories.Implementations
 
         public void DeletePayment(int id)
         {
-            // Убедитесь, что у сущности Payment есть свойство PaymentId
             var payment = _payments.FirstOrDefault(p => p.PaymentId == id);
             if (payment != null)
             {
