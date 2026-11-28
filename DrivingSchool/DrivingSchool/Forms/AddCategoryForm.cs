@@ -12,10 +12,23 @@ namespace DrivingSchool.Forms
         private Button btnSave;
         private Button btnCancel;
 
-        public AddCategoryForm()
+        private readonly int _categoryId;
+
+        public AddCategoryForm() : this(null)
+        {
+        }
+
+        public AddCategoryForm(Category category)
         {
             InitializeComponent();
             SetupComponents();
+
+            if (category != null)
+            {
+                _categoryId = category.CategoryId;
+                Text = "Редактировать категорию";
+                txtName.Text = category.Name;
+            }
         }
 
         private void SetupComponents()
@@ -51,17 +64,8 @@ namespace DrivingSchool.Forms
                 return;
             }
 
-            try
-            {
-                
-
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            CreatedCategory = Category.CreateEntity(_categoryId, txtName.Text.Trim());
+            DialogResult = DialogResult.OK;
         }
     }
 }

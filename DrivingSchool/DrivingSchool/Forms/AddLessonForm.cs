@@ -1,86 +1,29 @@
 ﻿using System;
+using System.Linq;
 using System.Windows.Forms;
 using DrivingSchool.Entities;
+using DrivingSchool.Repositories;
+using static DrivingSchool.Forms.FormHelpers;
 
 namespace DrivingSchool.Forms
 {
     public partial class AddLessonForm : Form
     {
-        public Lesson CreatedLesson { get; private set; }
-
-        private TextBox txtLessonType;
-        private TextBox txtGroupId;
-        private TextBox txtInstructorId;
-        private DateTimePicker dtpDate;
-        private Button btnSave;
-        private Button btnCancel;
-
-        public AddLessonForm()
+        public AddLessonForm(IGroupRepository groups, IInstructorRepository instructors, Action<Lesson> save)
         {
             InitializeComponent();
-            SetupComponents();
-        }
-
-        private void SetupComponents()
-        {
-            this.Text = "Добавление занятия";
-            this.Width = 400;
-            this.Height = 260;
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-
-            var lblType = new Label { Text = "Тип / Тема:", Left = 20, Top = 23, Width = 110 };
-            txtLessonType = new TextBox { Left = 140, Top = 20, Width = 210 };
-
-            var lblGroup = new Label { Text = "ID группы:", Left = 20, Top = 63, Width = 110 };
-            txtGroupId = new TextBox { Left = 140, Top = 60, Width = 210 };
-
-            var lblInst = new Label { Text = "ID инструктора:", Left = 20, Top = 103, Width = 110 };
-            txtInstructorId = new TextBox { Left = 140, Top = 100, Width = 210 };
-
-            var lblDate = new Label { Text = "Дата занятия:", Left = 20, Top = 143, Width = 110 };
-            dtpDate = new DateTimePicker { Left = 140, Top = 140, Width = 210, Format = DateTimePickerFormat.Short };
-
-            btnSave = new Button { Text = "Сохранить", Left = 140, Top = 185, Width = 100, Height = 30 };
-            btnSave.Click += BtnSave_Click;
-
-            btnCancel = new Button { Text = "Отмена", Left = 250, Top = 185, Width = 100, Height = 30 };
-            btnCancel.DialogResult = DialogResult.Cancel;
-
-            this.Controls.Add(lblType);
-            this.Controls.Add(txtLessonType);
-            this.Controls.Add(lblGroup);
-            this.Controls.Add(txtGroupId);
-            this.Controls.Add(lblInst);
-            this.Controls.Add(txtInstructorId);
-            this.Controls.Add(lblDate);
-            this.Controls.Add(dtpDate);
-            this.Controls.Add(btnSave);
-            this.Controls.Add(btnCancel);
-        }
-
-        private void BtnSave_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(txtLessonType.Text) ||
-                !int.TryParse(txtGroupId.Text, out int groupId) ||
-                !int.TryParse(txtInstructorId.Text, out int instructorId))
+            var group = Choice(groups.ReadGroups().Select(x => (x.GroupId, $"{x.GroupName} (№{x.GroupId})")));
+            var instructor = Choice(instructors.ReadInstructors().Select(x => (x.InstructorId, $"{x.FullName} (№{x.InstructorId})")));
+            var date = DatePicker();
+            var type = new TextBox();
+            ConfigureEditor(this, "Добавить занятие", () =>
             {
-                MessageBox.Show("Проверьте правильность заполнения полей.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            try
-            {
-                
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+                var entity = Lesson.CreateEntity(0,
+                    RequiredChoice(group, "Выберите учебную группу. Если список пуст, сначала создайте группу."),
+                    RequiredChoice(instructor, "Выберите инструктора. Если список пуст, сначала добавьте инструктора."),
+                    date.Value.Date, RequiredText(type, "Введите тип или тему занятия."));
+                save(entity);
+            }, ("Учебная группа", group), ("Инструктор", instructor), ("Дата занятия", date), ("Тип / тема", type));
         }
     }
 }

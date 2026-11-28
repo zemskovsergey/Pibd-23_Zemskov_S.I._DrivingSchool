@@ -8,6 +8,7 @@ namespace DrivingSchool.Repositories
         IEnumerable<Student> ReadStudents();
         Student ReadStudentById(int id);
         void CreateStudent(Student student);
+        void UpdateStudent(Student student);
         void DeleteStudent(int id);
     }
 }

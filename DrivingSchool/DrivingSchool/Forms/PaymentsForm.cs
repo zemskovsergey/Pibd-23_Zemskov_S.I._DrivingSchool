@@ -1,69 +1,60 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using DrivingSchool.Entities;
 using DrivingSchool.Repositories;
+using static DrivingSchool.Forms.FormHelpers;
 
 namespace DrivingSchool.Forms
 {
     public partial class PaymentsForm : Form
     {
-        private readonly IPaymentRepository _paymentRepository;
-        private DataGridView dataGridViewPayments;
-        private Button btnAdd;
+        private readonly IPaymentRepository _repo;
+        private readonly IStudentRepository _students;
+        private readonly DataGridView _grid;
+        private Dictionary<int, string> _StudentIdNames = new();
 
-        public PaymentsForm(IPaymentRepository paymentRepository)
+        public PaymentsForm(IPaymentRepository repo, IStudentRepository students)
         {
             InitializeComponent();
-            _paymentRepository = paymentRepository ?? throw new ArgumentNullException(nameof(paymentRepository));
-
-            SetupForm();
-            LoadData();
-        }
-
-        private void SetupForm()
-        {
-            this.Text = "Журнал: Оплаты";
-            this.Width = 750;
-            this.Height = 450;
-            this.StartPosition = FormStartPosition.CenterParent;
-
-            btnAdd = new Button
+            _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+            _students = students ?? throw new ArgumentNullException(nameof(students));
+            _grid = ConfigureList(this, "Журнал: Оплаты", new[]
             {
-                Text = "Добавить платеж",
-                Dock = DockStyle.Top,
-                Height = 35
-            };
-            btnAdd.Click += BtnAdd_Click;
-
-            dataGridViewPayments = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
-            };
-
-            this.Controls.Add(dataGridViewPayments);
-            this.Controls.Add(btnAdd);
+                (nameof(Payment.StudentId), "Студент", ""),
+                (nameof(Payment.Amount), "Сумма, ₽", "N2"),
+                (nameof(Payment.PaymentDate), "Дата оплаты", "d")
+            }, ("Добавить", OpenEditor));
+            _grid.CellFormatting += FormatCell;
+            Shown += (_, _) => Run(this, LoadData);
         }
 
         private void LoadData()
         {
-            dataGridViewPayments.DataSource = null;
-            dataGridViewPayments.DataSource = _paymentRepository.ReadPayments();
+            _StudentIdNames = _students.ReadStudents().ToDictionary(x => x.StudentId, x => x.FullName);
+            _grid.DataSource = _repo.ReadPayments().ToList();
         }
 
-        private void BtnAdd_Click(object sender, EventArgs e)
+        private void FormatCell(object sender, DataGridViewCellFormattingEventArgs e)
         {
-            using (var addForm = new AddPaymentForm())
+            var value = _grid.Columns[e.ColumnIndex].DataPropertyName switch
             {
-                if (addForm.ShowDialog() == DialogResult.OK && addForm.CreatedPayment != null)
-                {
-                    _paymentRepository.CreatePayment(addForm.CreatedPayment);
-                    LoadData();
-                }
+                nameof(Payment.StudentId) when e.Value is int id => _StudentIdNames.GetValueOrDefault(id, $"№{id}"),
+                _ => null
+            };
+            if (value != null)
+            {
+                e.Value = value;
+                e.FormattingApplied = true;
             }
+        }
+
+        private void OpenEditor()
+        {
+            using var dialog = new AddPaymentForm(_students, _repo.CreatePayment);
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+                LoadData();
         }
     }
 }

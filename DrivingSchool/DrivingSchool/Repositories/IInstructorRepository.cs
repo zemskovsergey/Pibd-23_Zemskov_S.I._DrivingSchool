@@ -8,6 +8,7 @@ namespace DrivingSchool.Repositories
         IEnumerable<Instructor> ReadInstructors();
         Instructor ReadInstructorById(int id);
         void CreateInstructor(Instructor instructor);
+        void UpdateInstructor(Instructor instructor);
         void DeleteInstructor(int id);
     }
 }
