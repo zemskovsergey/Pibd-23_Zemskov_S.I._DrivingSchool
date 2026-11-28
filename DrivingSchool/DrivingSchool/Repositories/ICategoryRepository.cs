@@ -8,6 +8,7 @@ namespace DrivingSchool.Repositories
         IEnumerable<Category> ReadCategories();
         Category ReadCategoryById(int id);
         void CreateCategory(Category category);
+        void UpdateCategory(Category category);
         void DeleteCategory(int id);
     }
 }

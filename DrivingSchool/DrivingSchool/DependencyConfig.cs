@@ -1,8 +1,13 @@
-﻿using Autofac;
-using DrivingSchool.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using Autofac;
+using DrivingSchool.Data;
+using DrivingSchool.Forms;
 using DrivingSchool.Repositories;
 using DrivingSchool.Repositories.Implementations;
-using DrivingSchool.Forms;
+using Microsoft.Extensions.Configuration;
+using Serilog;
 
 namespace DrivingSchool
 {
@@ -12,14 +17,16 @@ namespace DrivingSchool
         {
             var builder = new ContainerBuilder();
 
-            builder.RegisterType<StudentRepositoryMock>().As<IStudentRepository>().SingleInstance();
-            builder.RegisterType<InstructorRepositoryMock>().As<IInstructorRepository>().SingleInstance();
-            builder.RegisterType<GroupRepositoryMock>().As<IGroupRepository>().SingleInstance();
-            builder.RegisterType<CategoryRepositoryMock>().As<ICategoryRepository>().SingleInstance();
-            builder.RegisterType<PaymentRepositoryMock>().As<IPaymentRepository>().SingleInstance();
-            builder.RegisterType<ExamResultRepositoryMock>().As<IExamResultRepository>().SingleInstance();
-            builder.RegisterType<AttendanceRepositoryMock>().As<IAttendanceRepository>().SingleInstance();
-            builder.RegisterType<LessonRepositoryMock>().As<ILessonRepository>().SingleInstance();
+            builder.Register(_ => CreateLogger()).As<ILogger>().SingleInstance();
+            builder.RegisterType<DataContext>().InstancePerDependency();
+            builder.RegisterType<StudentRepository>().As<IStudentRepository>();
+            builder.RegisterType<InstructorRepository>().As<IInstructorRepository>();
+            builder.RegisterType<GroupRepository>().As<IGroupRepository>();
+            builder.RegisterType<CategoryRepository>().As<ICategoryRepository>();
+            builder.RegisterType<PaymentRepository>().As<IPaymentRepository>();
+            builder.RegisterType<ExamResultRepository>().As<IExamResultRepository>();
+            builder.RegisterType<AttendanceRepository>().As<IAttendanceRepository>();
+            builder.RegisterType<LessonRepository>().As<ILessonRepository>();
 
             builder.RegisterType<MainForm>().AsSelf();
             builder.RegisterType<AttendanceForm>().AsSelf();
@@ -32,6 +39,20 @@ namespace DrivingSchool
             builder.RegisterType<StudentsForm>().AsSelf();
 
             return builder.Build();
+        }
+
+        private static ILogger CreateLogger()
+        {
+            const string logPathKey = "Serilog:WriteTo:File:Args:path";
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false);
+            using var settings = (ConfigurationRoot)configuration.Build();
+            var logPath = Path.GetFullPath(settings[logPathKey] ?? "Logs/driving-school-.log",
+                AppContext.BaseDirectory);
+            configuration.AddInMemoryCollection(new Dictionary<string, string> { [logPathKey] = logPath });
+            using var normalized = (ConfigurationRoot)configuration.Build();
+            return new LoggerConfiguration().ReadFrom.Configuration(normalized).CreateLogger();
         }
     }
 }

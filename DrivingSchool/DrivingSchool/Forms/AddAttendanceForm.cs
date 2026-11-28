@@ -1,77 +1,41 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using DrivingSchool.Entities;
+using DrivingSchool.Repositories;
+using static DrivingSchool.Forms.FormHelpers;
 
 namespace DrivingSchool.Forms
 {
     public partial class AddAttendanceForm : Form
     {
-        public Attendance CreatedAttendance { get; private set; }
-
-        private TextBox txtStudentId;
-        private TextBox txtLessonId;
-        private CheckBox chkIsPresent;
-        private Button btnSave;
-        private Button btnCancel;
-
-        public AddAttendanceForm()
+        public AddAttendanceForm(IStudentRepository students, ILessonRepository lessons, IGroupRepository groups, Action<Attendance> save)
         {
             InitializeComponent();
-            SetupComponents();
-        }
-
-        private void SetupComponents()
-        {
-            this.Text = "Отметка посещаемости";
-            this.Width = 380;
-            this.Height = 240;
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-
-            var lblStudent = new Label { Text = "ID Студента:", Left = 20, Top = 23, Width = 100 };
-            txtStudentId = new TextBox { Left = 130, Top = 20, Width = 200 };
-
-            var lblLesson = new Label { Text = "ID Занятия:", Left = 20, Top = 63, Width = 100 };
-            txtLessonId = new TextBox { Left = 130, Top = 60, Width = 200 };
-
-            chkIsPresent = new CheckBox { Text = "Присутствовал", Left = 130, Top = 105, Width = 200 };
-
-            btnSave = new Button { Text = "Сохранить", Left = 130, Top = 145, Width = 95, Height = 30 };
-            btnSave.Click += BtnSave_Click;
-
-            btnCancel = new Button { Text = "Отмена", Left = 235, Top = 145, Width = 95, Height = 30 };
-            btnCancel.DialogResult = DialogResult.Cancel;
-
-            this.Controls.Add(lblStudent);
-            this.Controls.Add(txtStudentId);
-            this.Controls.Add(lblLesson);
-            this.Controls.Add(txtLessonId);
-            this.Controls.Add(chkIsPresent);
-            this.Controls.Add(btnSave);
-            this.Controls.Add(btnCancel);
-        }
-
-        private void BtnSave_Click(object sender, EventArgs e)
-        {
-            if (!int.TryParse(txtStudentId.Text, out int studentId) || !int.TryParse(txtLessonId.Text, out int lessonId))
+            var studentRows = students.ReadStudents().ToList();
+            var lessonRows = lessons.ReadLessons().ToDictionary(x => x.LessonId);
+            var groupNames = groups.ReadGroups().ToDictionary(x => x.GroupId, x => x.GroupName);
+            var lesson = Choice(lessonRows.Values.Select(x => (x.LessonId,
+                $"{x.LessonDate:d} — {x.LessonType} — {groupNames.GetValueOrDefault(x.GroupId, $"№{x.GroupId}")} (№{x.LessonId})")));
+            var student = Choice(Array.Empty<(int, string)>());
+            var present = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            present.Items.AddRange(new object[] { "Присутствовал", "Отсутствовал" });
+            lesson.SelectedIndexChanged += (_, _) =>
             {
-                MessageBox.Show("ID студента и ID занятия должны быть числами.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            try
+                var candidates = lesson.SelectedValue is int id && lessonRows.TryGetValue(id, out var selected)
+                    ? studentRows.Where(x => x.GroupId == selected.GroupId)
+                    : Enumerable.Empty<Student>();
+                BindChoices(student, candidates.Select(x => (x.StudentId, $"{x.FullName} (№{x.StudentId})")));
+            };
+            ConfigureEditor(this, "Отметить посещаемость", () =>
             {
-                
-
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+                var lessonId = RequiredChoice(lesson, "Выберите занятие. Если список пуст, сначала добавьте занятие.");
+                var studentId = RequiredChoice(student, "Выберите студента из группы этого занятия.");
+                if (present.SelectedIndex < 0)
+                    throw new ArgumentException("Укажите, присутствовал ли студент.");
+                save(Attendance.CreateEntity(0, studentId, present.SelectedIndex == 0, lessonId));
+            }, ("Занятие", lesson), ("Студент", student), ("Отметка", present));
         }
     }
 }

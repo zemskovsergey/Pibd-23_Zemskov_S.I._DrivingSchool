@@ -1,90 +1,82 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using DrivingSchool.Entities;
 using DrivingSchool.Repositories;
+using static DrivingSchool.Forms.FormHelpers;
 
 namespace DrivingSchool.Forms
 {
     public partial class StudentsForm : Form
     {
-        private readonly IStudentRepository _studentRepository;
-        private DataGridView dataGridViewStudents;
-        private Button btnAdd;
-        private Button btnDelete;
+        private readonly IStudentRepository _repo;
+        private readonly IGroupRepository _groups;
+        private readonly DataGridView _grid;
+        private Dictionary<int, string> _GroupIdNames = new();
 
-        public StudentsForm(IStudentRepository studentRepository)
+        public StudentsForm(IStudentRepository repo, IGroupRepository groups)
         {
             InitializeComponent();
-            _studentRepository = studentRepository ?? throw new ArgumentNullException(nameof(studentRepository));
-
-            SetupForm();
-            LoadData();
-        }
-
-        private void SetupForm()
-        {
-            this.Text = "Справочник: Студенты";
-            this.Width = 800;
-            this.Height = 500;
-            this.StartPosition = FormStartPosition.CenterParent;
-
-            var topPanel = new Panel { Dock = DockStyle.Top, Height = 45 };
-
-            btnAdd = new Button { Text = "Добавить студента", Left = 10, Top = 8, Width = 150, Height = 30 };
-            btnAdd.Click += BtnAdd_Click;
-
-            btnDelete = new Button { Text = "Удалить выбранного", Left = 170, Top = 8, Width = 160, Height = 30 };
-            btnDelete.Click += BtnDelete_Click;
-
-            topPanel.Controls.Add(btnAdd);
-            topPanel.Controls.Add(btnDelete);
-
-            dataGridViewStudents = new DataGridView
+            _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+            _groups = groups ?? throw new ArgumentNullException(nameof(groups));
+            _grid = ConfigureList(this, "Справочник: Студенты", new[]
             {
-                Dock = DockStyle.Fill,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
-            };
-
-            this.Controls.Add(dataGridViewStudents);
-            this.Controls.Add(topPanel);
+                (nameof(Student.FullName), "ФИО", ""),
+                (nameof(Student.Phone), "Телефон", ""),
+                (nameof(Student.GroupId), "Группа", ""),
+                (nameof(Student.TuitionFee), "Стоимость, ₽", "N2")
+            }, ("Добавить", () => OpenEditor(null)), ("Редактировать", EditSelected), ("Удалить", DeleteSelected));
+            _grid.CellFormatting += FormatCell;
+            Shown += (_, _) => Run(this, LoadData);
         }
 
         private void LoadData()
         {
-            dataGridViewStudents.DataSource = null;
-            dataGridViewStudents.DataSource = _studentRepository.ReadStudents();
+            _GroupIdNames = _groups.ReadGroups().ToDictionary(x => x.GroupId, x => x.GroupName);
+            _grid.DataSource = _repo.ReadStudents().ToList();
         }
 
-        private void BtnAdd_Click(object sender, EventArgs e)
+        private void FormatCell(object sender, DataGridViewCellFormattingEventArgs e)
         {
-            using (var addForm = new AddStudentForm())
+            var value = _grid.Columns[e.ColumnIndex].DataPropertyName switch
             {
-                if (addForm.ShowDialog() == DialogResult.OK && addForm.CreatedStudent != null)
-                {
-                    _studentRepository.CreateStudent(addForm.CreatedStudent);
-                    LoadData();
-                }
+                nameof(Student.GroupId) when e.Value is int id => _GroupIdNames.GetValueOrDefault(id, $"№{id}"),
+                _ => null
+            };
+            if (value != null)
+            {
+                e.Value = value;
+                e.FormattingApplied = true;
             }
         }
 
-        private void BtnDelete_Click(object sender, EventArgs e)
+        private void OpenEditor(Student existing)
         {
-            if (dataGridViewStudents.CurrentRow?.DataBoundItem is Student selectedStudent)
-            {
-                var confirm = MessageBox.Show($"Удалить студента {selectedStudent.FullName}?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm == DialogResult.Yes)
-                {
-                    _studentRepository.DeleteStudent(selectedStudent.StudentId);
-                    LoadData();
-                }
-            }
-            else
-            {
-                MessageBox.Show("Выберите строку для удаления.", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            Action<Student> save = existing == null ? _repo.CreateStudent : _repo.UpdateStudent;
+            using var dialog = new AddStudentForm(_groups, save, existing);
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+                LoadData();
+        }
+
+        private void EditSelected()
+        {
+            var selected = ShowSelection<Student>(this, _grid);
+            if (selected == null)
+                return;
+            var existing = _repo.ReadStudentById(selected.StudentId)
+                ?? throw new InvalidOperationException("Запись больше не существует.");
+            OpenEditor(existing);
+        }
+
+        private void DeleteSelected()
+        {
+            var selected = ShowSelection<Student>(this, _grid);
+            if (selected == null || MessageBox.Show(this, "Удалить выбранную запись?", "Подтверждение",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+            _repo.DeleteStudent(selected.StudentId);
+            LoadData();
         }
     }
 }

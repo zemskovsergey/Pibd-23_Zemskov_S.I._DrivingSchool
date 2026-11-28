@@ -8,6 +8,7 @@ namespace DrivingSchool.Repositories
         IEnumerable<Group> ReadGroups();
         Group ReadGroupById(int id);
         void CreateGroup(Group group);
+        void UpdateGroup(Group group);
         void DeleteGroup(int id);
     }
 }

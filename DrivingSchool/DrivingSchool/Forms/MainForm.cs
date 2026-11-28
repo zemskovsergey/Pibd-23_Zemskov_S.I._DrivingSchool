@@ -53,55 +53,58 @@ namespace DrivingSchool
             ToolStripMenuItem dictionariesMenu = new ToolStripMenuItem("Справочники");
 
             ToolStripMenuItem studentsItem = new ToolStripMenuItem("Студенты");
-            studentsItem.Click += (s, e) => new StudentsForm(_studentRepository).ShowDialog();
+            studentsItem.Click += (s, e) => ShowChild(() => new StudentsForm(_studentRepository, _groupRepository));
 
-            ToolStripMenuItem instructorsItem = new ToolStripMenuItem("Преподаватели");
-            instructorsItem.Click += (s, e) => new InstructorsForm(_instructorRepository).ShowDialog();
+            ToolStripMenuItem instructorsItem = new ToolStripMenuItem("Инструкторы");
+            instructorsItem.Click += (s, e) => ShowChild(() => new InstructorsForm(_instructorRepository));
 
             ToolStripMenuItem groupsItem = new ToolStripMenuItem("Группы");
-            groupsItem.Click += (s, e) => new GroupsForm(_groupRepository).ShowDialog();
+            groupsItem.Click += (s, e) => ShowChild(() => new GroupsForm(_groupRepository, _categoryRepository, _instructorRepository));
 
             ToolStripMenuItem categoriesItem = new ToolStripMenuItem("Категории");
-            categoriesItem.Click += (s, e) => new CategoriesForm(_categoryRepository).ShowDialog();
+            categoriesItem.Click += (s, e) => ShowChild(() => new CategoriesForm(_categoryRepository));
 
             dictionariesMenu.DropDownItems.Add(studentsItem);
             dictionariesMenu.DropDownItems.Add(instructorsItem);
             dictionariesMenu.DropDownItems.Add(groupsItem);
             dictionariesMenu.DropDownItems.Add(categoriesItem);
 
-            // Меню "Журналы" (операции)
-            ToolStripMenuItem journalsMenu = new ToolStripMenuItem("Журналы");
+            ToolStripMenuItem journalsMenu = new ToolStripMenuItem("Операции");
 
             ToolStripMenuItem paymentsItem = new ToolStripMenuItem("Оплаты");
-            paymentsItem.Click += (s, e) => new PaymentsForm(_paymentRepository).ShowDialog();
+            paymentsItem.Click += (s, e) => ShowChild(() => new PaymentsForm(_paymentRepository, _studentRepository));
 
             ToolStripMenuItem attendanceItem = new ToolStripMenuItem("Посещаемость");
-            attendanceItem.Click += (s, e) => new AttendanceForm(_attendanceRepository).ShowDialog();
+            attendanceItem.Click += (s, e) => ShowChild(() => new AttendanceForm(_attendanceRepository, _studentRepository, _lessonRepository, _groupRepository));
 
             ToolStripMenuItem lessonsItem = new ToolStripMenuItem("Занятия");
-            lessonsItem.Click += (s, e) => new LessonsForm(_lessonRepository).ShowDialog();
+            lessonsItem.Click += (s, e) => ShowChild(() => new LessonsForm(_lessonRepository, _groupRepository, _instructorRepository));
 
             ToolStripMenuItem examsItem = new ToolStripMenuItem("Результаты экзаменов");
-            examsItem.Click += (s, e) => new ExamResultsForm(_examResultRepository).ShowDialog();
+            examsItem.Click += (s, e) => ShowChild(() => new ExamResultsForm(_examResultRepository, _studentRepository));
 
             journalsMenu.DropDownItems.Add(paymentsItem);
             journalsMenu.DropDownItems.Add(attendanceItem);
             journalsMenu.DropDownItems.Add(lessonsItem);
             journalsMenu.DropDownItems.Add(examsItem);
 
-            // Меню "Отчеты"
             ToolStripMenuItem reportsMenu = new ToolStripMenuItem("Отчеты");
-            ToolStripMenuItem emptyReportItem = new ToolStripMenuItem("Сформировать отчет...");
-            emptyReportItem.Click += (s, e) => MessageBox.Show("Модуль отчетов находится в разработке.", "Отчеты", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            reportsMenu.DropDownItems.Add(emptyReportItem);
 
-            // Добавляем все пункты в главное меню окна
             menuStrip.Items.Add(dictionariesMenu);
             menuStrip.Items.Add(journalsMenu);
             menuStrip.Items.Add(reportsMenu);
 
             this.MainMenuStrip = menuStrip;
             this.Controls.Add(menuStrip);
+        }
+
+        private void ShowChild(Func<Form> createForm)
+        {
+            FormHelpers.Run(this, () =>
+            {
+                using var child = createForm();
+                child.ShowDialog(this);
+            });
         }
     }
 }
